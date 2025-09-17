@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sequential vs Multithreading Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .section h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            color: #ffd700;
+        }
+        
+        .chef-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .chef {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .chef.working {
+            transform: scale(1.1);
+            text-shadow: 0 0 20px #ffd700;
+        }
+        
+        .timer {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 15px;
+        }
+        
+        .orders {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .order {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid #ffd700;
+            transition: all 0.3s ease;
+        }
+        
+        .order.active {
+            background: rgba(255, 215, 0, 0.2);
+            border-left-color: #ff6b6b;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        
+        .order.completed {
+            background: rgba(76, 175, 80, 0.2);
+            border-left-color: #4caf50;
+            opacity: 0.7;
+        }
+        
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .order-id {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .order-status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .status-waiting {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .status-processing {
+            background: #2196f3;
+            color: white;
+        }
+        
+        .status-completed {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .order-steps {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .step {
+            flex: 1;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .step.pending {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ccc;
+        }
+        
+        .step.active {
+            background: #ff6b6b;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+        
+        .step.completed {
+            background: #4caf50;
+            color: white;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(238, 90, 36, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffd700);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍳 Sequential vs Multithreading 🍳</h1>
+        
+        <div class="controls">
+            <button class="btn" onclick="startSequential()">Start Sequential</button>
+            <button class="btn" onclick="startMultithreading()">Start Multithreading</button>
+            <button class="btn" onclick="resetAll()">Reset All</button>
+        </div>
+        
+        <div class="comparison">
+            <div class="section">
+                <h2>Sequential (Single Thread)</h2>
+                <div class="chef-container">
+                    <div class="chef" id="chef1">👨‍🍳</div>
+                    <div class="timer" id="timer1">Time: 0s</div>
+                </div>
+                <div class="orders" id="orders1">
+                    <div class="order" id="seq-order-1">
+                        <div class="order-header">
+                            <span class="order-id">🍔 Order A</span>
+                            <span class="order-status status-waiting">Waiting</span>
+                        </div>
+                        <div class="order-steps">
+                            <div class="step pending">📞 Reception</div>
+                            <div class="step pending">🍳 Processing</div>
+                            <div class="step pending">🍽️ Transaction</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="seq-progress-1"></div>
+                        </div>
+                    </div>
+                    <div class="order" id="seq-order-2">
+                        <div class="order-header">
+                            <span class="order-id">🍝 Order B</span>
+                            <span class="order-status status-waiting">Waiting</span>
+                        </div>
+                        <div class="order-steps">
+                            <div class="step pending">📞 Reception</div>
+                            <div class="step pending">🍳 Processing</div>
+                            <div class="step pending">🍽️ Transaction</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="seq-progress-2"></div>
+                        </div>
+                    </div>
+                    <div class="order" id="seq-order-3">
+                        <div class="order-header">
+                            <span class="order-id">🍲 Order C</span>
+                            <span class="order-status status-waiting">Waiting</span>
+                        </div>
+                        <div class="order-steps">
+                            <div class="step pending">📞 Reception</div>
+                            <div class="step pending">🍳 Processing</div>
+                            <div class="step pending">🍽️ Transaction</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="seq-progress-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>True Multithreading (Multiple Cores)</h2>
+                <div class="chef-container">
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <div class="chef" id="chef2-1">👨‍🍳</div>
+                        <div class="chef" id="chef2-2">👩‍🍳</div>
+                        <div class="chef" id="chef2-3">👨‍🍳</div>
+                    </div>
+                    <div class="timer" id="timer2">Time: 0s</div>
+                    <div style="text-align: center; font-size: 0.9rem; opacity: 0.8;">3 CPU Cores = 3 Chefs</div>
+                </div>
+                <div class="orders" id="orders2">
+                    <div class="order" id="multi-order-1">
+                        <div class="order-header">
+                            <span class="order-id">🍔 Order A</span>
+                            <span class="order-status status-waiting">Waiting</span>
+                        </div>
+                        <div class="order-steps">
+                            <div class="step pending">📞 Reception</div>
+                            <div class="step pending">🍳 Processing</div>
+                            <div class="step pending">🍽️ Transaction</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="multi-progress-1"></div>
+                        </div>
+                    </div>
+                    <div class="order" id="multi-order-2">
+                        <div class="order-header">
+                            <span class="order-id">🍝 Order B</span>
+                            <span class="order-status status-waiting">Waiting</span>
+                        </div>
+                        <div class="order-steps">
+                            <div class="step pending">📞 Reception</div>
+                            <div class="step pending">🍳 Processing</div>
+                            <div class="step pending">🍽️ Transaction</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="multi-progress-2"></div>
+                        </div>
+                    </div>
+                    <div class="order" id="multi-order-3">
+                        <div class="order-header">
+                            <span class="order-id">🍲 Order C</span>
+                            <span class="order-status status-waiting">Waiting</span>
+                        </div>
+                        <div class="order-steps">
+                            <div class="step pending">📞 Reception</div>
+                            <div class="step pending">🍳 Processing</div>
+                            <div class="step pending">🍽️ Transaction</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="multi-progress-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 15px; padding: 25px; border: 1px solid rgba(255, 255, 255, 0.2); margin-top: 20px;">
+            <h2 style="color: #ffd700; margin-bottom: 15px;">🤔 Key Difference Explained</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h3 style="color: #ff6b6b;">Sequential (Single Thread)</h3>
+                    <p>• One chef handles one complete order at a time</p>
+                    <p>• Must wait during blocking operations (oven timer, customer payment)</p>
+                    <p>• Other orders wait in queue</p>
+                </div>
+                <div>
+                    <h3 style="color: #4caf50;">True Multithreading</h3>
+                    <p>• Multiple chefs (CPU cores) work simultaneously</p>
+                    <p>• Each order gets its own dedicated chef</p>
+                    <p>• Orders progress in parallel, not by switching</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sequentialTimer = null;
+        let multithreadingTimer = null;
+        let sequentialTime = 0;
+        let multithreadingTime = 0;
+        
+        // Sequential execution state - includes blocking/waiting time
+        let sequentialState = {
+            currentOrder: 0,
+            currentStep: 0,
+            stepProgress: 0,
+            orders: [
+                { steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 5, 1], waitTimes: [1, 2, 0.5] },
+                { steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 4, 1], waitTimes: [1, 3, 0.5] },
+                { steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 6, 1], waitTimes: [1, 2, 0.5] }
+            ]
+        };
+        
+        // Multithreading execution state - can work on other orders during wait times
+        let multithreadingState = {
+            orders: [
+                { currentStep: 0, stepProgress: 0, steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 5, 1], waitTimes: [1, 2, 0.5], isWaiting: false, waitProgress: 0 },
+                { currentStep: 0, stepProgress: 0, steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 4, 1], waitTimes: [1, 3, 0.5], isWaiting: false, waitProgress: 0 },
+                { currentStep: 0, stepProgress: 0, steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 6, 1], waitTimes: [1, 2, 0.5], isWaiting: false, waitProgress: 0 }
+            ],
+            currentOrderIndex: 0,
+            timeSliceDuration: 0.5 // seconds per time slice
+        };
+        
+        function resetAll() {
+            clearInterval(sequentialTimer);
+            clearInterval(multithreadingTimer);
+            sequentialTime = 0;
+            multithreadingTime = 0;
+            
+            // Reset sequential state
+            sequentialState = {
+                currentOrder: 0,
+                currentStep: 0,
+                stepProgress: 0,
+                orders: [
+                    { steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 5, 1], waitTimes: [1, 2, 0.5] },
+                    { steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 4, 1], waitTimes: [1, 3, 0.5] },
+                    { steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 6, 1], waitTimes: [1, 2, 0.5] }
+                ]
+            };
+            
+            // Reset multithreading state
+            multithreadingState = {
+                orders: [
+                    { currentStep: 0, stepProgress: 0, steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 5, 1], waitTimes: [1, 2, 0.5], isWaiting: false, waitProgress: 0, assignedChef: 0 },
+                    { currentStep: 0, stepProgress: 0, steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 4, 1], waitTimes: [1, 3, 0.5], isWaiting: false, waitProgress: 0, assignedChef: 1 },
+                    { currentStep: 0, stepProgress: 0, steps: ['reception', 'processing', 'transaction'], stepTimes: [2, 6, 1], waitTimes: [1, 2, 0.5], isWaiting: false, waitProgress: 0, assignedChef: 2 }
+                ]
+            };
+            
+            updateSequentialUI();
+            updateMultithreadingUI();
+            document.getElementById('timer1').textContent = 'Time: 0s';
+            document.getElementById('timer2').textContent = 'Time: 0s';
+            document.getElementById('chef1').classList.remove('working');
+            document.getElementById('chef2-1').classList.remove('working');
+            document.getElementById('chef2-2').classList.remove('working');
+            document.getElementById('chef2-3').classList.remove('working');
+        }
+        
+        function startSequential() {
+            resetAll();
+            document.getElementById('chef1').classList.add('working');
+            
+            sequentialTimer = setInterval(() => {
+                sequentialTime += 0.1;
+                document.getElementById('timer1').textContent = `Time: ${sequentialTime.toFixed(1)}s`;
+                
+                updateSequentialExecution();
+            }, 100);
+        }
+        
+        function updateSequentialExecution() {
+            const order = sequentialState.orders[sequentialState.currentOrder];
+            const stepTime = order.stepTimes[sequentialState.currentStep];
+            const waitTime = order.waitTimes[sequentialState.currentStep];
+            const totalStepTime = stepTime + waitTime;
+            
+            sequentialState.stepProgress += 0.1;
+            
+            if (sequentialState.stepProgress >= totalStepTime) {
+                // Complete current step (including wait time)
+                sequentialState.currentStep++;
+                sequentialState.stepProgress = 0;
+                
+                if (sequentialState.currentStep >= order.steps.length) {
+                    // Complete current order
+                    sequentialState.currentOrder++;
+                    sequentialState.currentStep = 0;
+                    
+                    if (sequentialState.currentOrder >= sequentialState.orders.length) {
+                        // All orders completed
+                        clearInterval(sequentialTimer);
+                        document.getElementById('chef1').classList.remove('working');
+                    }
+                }
+            }
+            
+            updateSequentialUI();
+        }
+        
+        function updateSequentialUI() {
+            for (let i = 0; i < 3; i++) {
+                const orderEl = document.getElementById(`seq-order-${i + 1}`);
+                const progressEl = document.getElementById(`seq-progress-${i + 1}`);
+                const statusEl = orderEl.querySelector('.order-status');
+                const steps = orderEl.querySelectorAll('.step');
+                
+                if (i < sequentialState.currentOrder) {
+                    // Completed order
+                    orderEl.classList.remove('active');
+                    orderEl.classList.add('completed');
+                    statusEl.textContent = 'Completed';
+                    statusEl.className = 'order-status status-completed';
+                    progressEl.style.width = '100%';
+                    
+                    steps.forEach((step, idx) => {
+                        step.classList.remove('pending', 'active');
+                        step.classList.add('completed');
+                    });
+                } else if (i === sequentialState.currentOrder && sequentialState.currentOrder < sequentialState.orders.length) {
+                    // Active order
+                    orderEl.classList.add('active');
+                    orderEl.classList.remove('completed');
+                    statusEl.textContent = 'Processing';
+                    statusEl.className = 'order-status status-processing';
+                    
+                    const order = sequentialState.orders[i];
+                    let totalProgress = 0;
+                    let totalTime = 0;
+                    
+                    // Calculate total time including wait times
+                    for (let j = 0; j < order.steps.length; j++) {
+                        totalTime += order.stepTimes[j] + order.waitTimes[j];
+                    }
+                    
+                    steps.forEach((step, idx) => {
+                        if (idx < sequentialState.currentStep) {
+                            step.classList.remove('pending', 'active');
+                            step.classList.add('completed');
+                            totalProgress += order.stepTimes[idx] + order.waitTimes[idx];
+                        } else if (idx === sequentialState.currentStep) {
+                            const stepTime = order.stepTimes[idx];
+                            const waitTime = order.waitTimes[idx];
+                            
+                            if (sequentialState.stepProgress < stepTime) {
+                                // Working phase
+                                step.classList.remove('pending', 'completed');
+                                step.classList.add('active');
+                                step.innerHTML = step.innerHTML.split(' ')[0] + ' (Working...)';
+                            } else {
+                                // Waiting/blocking phase
+                                step.classList.remove('pending', 'completed');
+                                step.classList.add('active');
+                                step.innerHTML = step.innerHTML.split(' ')[0] + ' (Waiting...)';
+                            }
+                            
+                            totalProgress += sequentialState.stepProgress;
+                        } else {
+                            step.classList.remove('active', 'completed');
+                            step.classList.add('pending');
+                            // Reset step text
+                            const stepTexts = ['📞 Reception', '🍳 Processing', '🍽️ Transaction'];
+                            step.innerHTML = stepTexts[idx];
+                        }
+                    });
+                    
+                    progressEl.style.width = `${(totalProgress / totalTime) * 100}%`;
+                } else {
+                    // Waiting order
+                    orderEl.classList.remove('active', 'completed');
+                    statusEl.textContent = 'Waiting';
+                    statusEl.className = 'order-status status-waiting';
+                    progressEl.style.width = '0%';
+                    
+                    steps.forEach((step, idx) => {
+                        step.classList.remove('active', 'completed');
+                        step.classList.add('pending');
+                    });
+                }
+            }
+        }
+        
+        function startMultithreading() {
+            resetAll();
+            document.getElementById('chef2-1').classList.add('working');
+            document.getElementById('chef2-2').classList.add('working');
+            document.getElementById('chef2-3').classList.add('working');
+            
+            multithreadingTimer = setInterval(() => {
+                multithreadingTime += 0.1;
+                document.getElementById('timer2').textContent = `Time: ${multithreadingTime.toFixed(1)}s`;
+                
+                updateMultithreadingExecution();
+            }, 100);
+        }
+        
+        function updateMultithreadingExecution() {
+            // Each order runs independently on its own chef (CPU core)
+            multithreadingState.orders.forEach((order, index) => {
+                if (order.currentStep >= order.steps.length) return; // Already complete
+                
+                const chefEl = document.getElementById(`chef2-${index + 1}`);
+                
+                if (order.isWaiting) {
+                    // Order is waiting (I/O operation) - chef is idle
+                    chefEl.classList.remove('working');
+                    order.waitProgress += 0.1;
+                    const waitTime = order.waitTimes[order.currentStep - 1];
+                    if (order.waitProgress >= waitTime) {
+                        order.isWaiting = false;
+                        order.waitProgress = 0;
+                        chefEl.classList.add('working');
+                    }
+                } else {
+                    // Order is actively working
+                    chefEl.classList.add('working');
+                    const stepTime = order.stepTimes[order.currentStep];
+                    order.stepProgress += 0.1;
+                    
+                    if (order.stepProgress >= stepTime) {
+                        // Complete current step, start waiting period
+                        order.currentStep++;
+                        order.stepProgress = 0;
+                        order.isWaiting = true;
+                        order.waitProgress = 0;
+                    }
+                }
+            });
+            
+            // Check if all orders are complete
+            let allComplete = multithreadingState.orders.every(order => order.currentStep >= order.steps.length);
+            if (allComplete) {
+                clearInterval(multithreadingTimer);
+                document.getElementById('chef2-1').classList.remove('working');
+                document.getElementById('chef2-2').classList.remove('working');
+                document.getElementById('chef2-3').classList.remove('working');
+            }
+            
+            updateMultithreadingUI();
+        }
+        function updateMultithreadingUI() {
+    for (let i = 0; i < 3; i++) {
+        const orderEl = document.getElementById(`multi-order-${i + 1}`);
+        const progressEl = document.getElementById(`multi-progress-${i + 1}`);
+        const statusEl = orderEl.querySelector('.order-status');
+        const steps = orderEl.querySelectorAll('.step');
+        const order = multithreadingState.orders[i];
+
+        const stepTexts = ['📞 Reception', '🍳 Processing', '🍽️ Transaction'];
+
+        if (order.currentStep >= order.steps.length) {
+            // ✅ Completed order
+            orderEl.classList.remove('active');
+            orderEl.classList.add('completed');
+            statusEl.textContent = 'Completed';
+            statusEl.className = 'order-status status-completed';
+            progressEl.style.width = '100%';
+
+            steps.forEach((step, idx) => {
+                step.className = 'step completed';
+                step.innerHTML = `${stepTexts[idx]}`;
+            });
+        } else {
+            // ⚙️ Active or waiting order
+            if (order.currentStep > 0 || order.stepProgress > 0) {
+                statusEl.textContent = 'In Progress';
+                statusEl.className = 'order-status status-processing';
+            } else {
+                statusEl.textContent = 'Starting';
+                statusEl.className = 'order-status status-processing';
+            }
+
+            let totalProgress = 0;
+            let totalTime = 0;
+            for (let j = 0; j < order.stepTimes.length; j++) {
+                totalTime += order.stepTimes[j] + order.waitTimes[j];
+            }
+
+            steps.forEach((step, idx) => {
+                step.classList.remove('pending', 'active', 'completed');
+                step.innerHTML = stepTexts[idx]; // always reset label
+
+                if (idx < order.currentStep) {
+                    step.classList.add('completed');
+                    totalProgress += order.stepTimes[idx] + order.waitTimes[idx];
+                } else if (idx === order.currentStep && !order.isWaiting) {
+                    step.classList.add('active');
+                    step.innerHTML = `${stepTexts[idx]} <span style="font-size:0.8rem;">(Working...)</span>`;
+                    totalProgress += order.stepProgress;
+                } else if (idx === order.currentStep - 1 && order.isWaiting) {
+                    step.classList.add('completed');
+                    step.innerHTML = `${stepTexts[idx]} <span style="font-size:0.8rem;">(I/O Wait...)</span>`;
+                } else {
+                    step.classList.add('pending');
+                }
+            });
+
+            progressEl.style.width = `${Math.max(0, (totalProgress / totalTime) * 100)}%`;
+        }
+    }
+}
+
+        // Initialize UI
+        updateSequentialUI();
+        updateMultithreadingUI();
+    </script>
+</body>
+</html>
